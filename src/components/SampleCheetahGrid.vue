@@ -9,10 +9,20 @@
         Load 1,000,000 records (sync)
       </button>
     </div>
-    <div v-show="requested" ref="gridWrapper" class="grid-wrapper"></div>
     <h4 class="status">
       {{ message }}
+      <template v-if="initTimeMs || totalTimeMs">
+        [
+        <template v-if="initTimeMs">
+          init: {{ initTimeMs }}ms
+        </template>
+        <template v-if="totalTimeMs">
+          total: {{ totalTimeMs }}ms
+        </template>
+        ]
+      </template>
     </h4>
+    <div v-show="requested" ref="gridWrapper" class="grid-wrapper"></div>
   </div>
 </template>
 
@@ -27,6 +37,8 @@ export default {
     return {
       hasData: false,
       message: "",
+      initTimeMs: "",
+      totalTimeMs: "",
       requested: false
     };
   },
@@ -88,8 +100,7 @@ export default {
       const records = [];
       const grid = this.createGrid(records);
       let buffer = [];
-      console.time("initial_time");
-      let first = true;
+      const startTime = Date.now();
       streamJsonForVue(this, "/api/persons", {}, rec => {
         buffer.push(rec);
         if (
@@ -97,19 +108,20 @@ export default {
           (records.length < 10000 && buffer.length >= 1000) ||
           (records.length < 1000 && buffer.length >= 100)
         ) {
-          if (first) {
-            first = false;
-            console.timeEnd("initial_time");
-          }
           records.push(...buffer);
           grid.records = records;
           buffer = [];
+          this.message = "loading... (" + records.length + "records)";
+          this.totalTimeMs = Date.now() - startTime;
+          if (!this.initTimeMs) {
+            this.initTimeMs = this.totalTimeMs;
+          }
         }
-        this.message = "loading... (" + records.length + "records)";
       }).then(() => {
         records.push(...buffer);
         grid.records = records;
         this.message = "";
+        this.totalTimeMs = Date.now() - startTime;
       });
     },
     syncOnClick() {
@@ -118,13 +130,14 @@ export default {
       this.$nextTick(() => {
         const records = [];
         const grid = this.createGrid(records);
-        console.time("initial_time");
+        const startTime = Date.now();
         fetch("/api/persons/sync")
           .then(response => response.json())
           .then(records => {
             console.timeEnd("initial_time");
             grid.records = records;
             this.message = "";
+            this.totalTimeMs = Date.now() - startTime;
           });
       });
     },

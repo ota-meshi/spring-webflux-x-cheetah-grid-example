@@ -170,10 +170,9 @@ a.nav-item:hover {
   border: 1px solid #ddd;
 }
 #app >>> .status {
-  pointer-events: none;
   opacity: 0.6;
-  position: fixed;
-  top: 95px;
+  position: absolute;
+  top: 100px;
   right: 30px;
   left: 30px;
   text-align: center;

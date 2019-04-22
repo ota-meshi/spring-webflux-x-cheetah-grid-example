@@ -9,7 +9,20 @@
         Load 1,000,000 records (sync)
       </button>
     </div>
-    <div v-else class="grid-wrapper">
+    <h4 class="status">
+      {{ message }}
+      <template v-if="initTimeMs || totalTimeMs">
+        [
+        <template v-if="initTimeMs">
+          init: {{ initTimeMs }}ms
+        </template>
+        <template v-if="totalTimeMs">
+          total: {{ totalTimeMs }}ms
+        </template>
+        ]
+      </template>
+    </h4>
+    <div v-if="data.length" class="grid-wrapper">
       <c-grid ref="grid" :data="data" frozen-col-count="2">
         <c-grid-check-column field="check" width="50px" />
         <c-grid-column field="id" width="100px">
@@ -35,9 +48,6 @@
         </c-grid-button-column>
       </c-grid>
     </div>
-    <h4 class="status">
-      {{ message }}
-    </h4>
   </div>
 </template>
 
@@ -52,6 +62,8 @@ export default {
     return {
       data: [],
       message: "",
+      initTimeMs: "",
+      totalTimeMs: "",
       requested: false
     };
   },
@@ -68,8 +80,7 @@ export default {
       let buffer = [];
       this.message = "request...";
       this.requested = true;
-      console.time("initial_time");
-      let first = true;
+      const startTime = Date.now();
       streamJsonForVue(this, "/api/persons", {}, rec => {
         buffer.push(rec);
         if (
@@ -77,29 +88,29 @@ export default {
           (data.length < 10000 && buffer.length >= 1000) ||
           (data.length < 1000 && buffer.length >= 100)
         ) {
-          if (first) {
-            first = false;
-            console.timeEnd("initial_time");
-          }
           data.push(...buffer);
           dataSource.length = data.length;
           buffer = [];
+          this.message = "loading... (" + dataSource.length + "records)";
+          this.totalTimeMs = Date.now() - startTime;
+          if (!this.initTimeMs) {
+            this.initTimeMs = this.totalTimeMs;
+          }
         }
-        this.message = "loading... (" + dataSource.length + "records)";
       }).then(() => {
         data.push(...buffer);
         dataSource.length = data.length;
         this.message = "";
+        this.totalTimeMs = Date.now() - startTime;
       });
     },
     syncOnClick() {
       this.message = "request...";
       this.requested = true;
-      console.time("initial_time");
+      const startTime = Date.now();
       fetch("/api/persons/sync")
         .then(response => response.json())
         .then(records => {
-          console.timeEnd("initial_time");
           this.data = new cheetahGrid.data.CachedDataSource({
             get(index) {
               return records[index];
@@ -107,6 +118,7 @@ export default {
             length: records.length
           });
           this.message = "";
+          this.totalTimeMs = Date.now() - startTime;
         });
     },
     recordOnClick(rec) {
