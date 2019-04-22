@@ -92,7 +92,11 @@ export default {
       let first = true;
       streamJsonForVue(this, "/api/persons", {}, rec => {
         buffer.push(rec);
-        if (buffer.length >= 1000) {
+        if (
+          buffer.length >= 10000 ||
+          (records.length < 10000 && buffer.length >= 1000) ||
+          (records.length < 1000 && buffer.length >= 100)
+        ) {
           if (first) {
             first = false;
             console.timeEnd("initial_time");
